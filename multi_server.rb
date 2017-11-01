@@ -27,7 +27,7 @@ Content-Length: #{File.size($file_name)}
 Content-Type: text/html
 Content-Length: #{File.size("not_found.html")}
 
-#{File.read("not_found.html")}}
+#{File.read("not_found.html")}}}
       end
       client.print(response)
     else
