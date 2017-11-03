@@ -1,4 +1,5 @@
 require 'socket'                 # Get sockets from stdlib
+require 'json'
 
 def parsing_request(request)
   array_values = request.match(/^(\w+)\s+\/(\w+\.?\w+)?\s+HTTP\/(\d+\.?\d+)/)
@@ -7,10 +8,23 @@ def parsing_request(request)
   $http_version = array_values[3]
 end
 
-server = TCPServer.open(2000)    # Socket to listen on port 2000
+def get_request(client)
+  request = ""
+  loop{
+    str = client.gets
+    if str == "\r\n"
+        break
+    else
+      request << str
+    end
+  }
+  request
+end
+
+server = TCPServer.new(2000)    # Socket to listen on port 2000
 loop {                           # Servers run forever
    Thread.start(server.accept) do |client|
-    request = client.gets
+    request = get_request(client)
     parsing_request(request)
     if $function == "GET" && $file_name != nil
       exist_file = File.exists?($file_name)
@@ -27,14 +41,27 @@ Content-Length: #{File.size($file_name)}
 Content-Type: text/html
 Content-Length: #{File.size("not_found.html")}
 
-#{File.read("not_found.html")}}}
+#{File.read("not_found.html")}}
       end
       client.print(response)
+    elsif $function == "POST"
+      params = JSON.parse(request.split("\n\n")[-1])
+      html_answer = File.read("thanks.html")
+      zamena = []
+      params["viking"].each {|key,value| zamena << "<li>#{key}: #{value}</li>" }
+      html_answer.gsub!(/<%= yield %>/,"#{zamena.join}")
+      response = %{HTTP/#{$http_version} 200 OK
+Date: #{Time.now.ctime}
+Content-Type: text/html
+Content-Length: #{html_answer.bytesize}
+
+#{html_answer}}
+    client.print(response)
     else
       client.puts(request)
       client.puts(Time.now.ctime)   # Send the time to the client
       client.puts "Closing the connection. Bye!"
     end
-    client.close
+     client.close
    end
 }
